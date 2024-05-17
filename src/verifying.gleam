@@ -4,10 +4,11 @@ import gleam/json
 import gleam/list
 import gleam/option.{None}
 import gleam/result
-import interaction/interaction.{type Interaction}
-import interaction/interaction_callback_type
-import interaction/interaction_response.{InteractionResponse}
-import interaction/interaction_type
+import gleam/string
+import model/interaction.{type Interaction}
+import model/interaction_callback.{InteractionCallback}
+import model/interaction_callback_type
+import model/interaction_type
 import wisp.{type Request, type Response}
 
 type Handler =
@@ -38,13 +39,13 @@ fn verify(
 }
 
 fn verified(body: BitArray, handler: Handler) -> Response {
-  case json.decode_bits(from: body, using: interaction.decoder()) {
+  case json.decode_bits(from: body, using: interaction.decode) {
     Ok(interaction) -> {
       case interaction.kind {
         interaction_type.Ping -> {
           let body =
             json.to_string_builder(
-              interaction_response.to_json(InteractionResponse(
+              interaction_callback.to_json(InteractionCallback(
                 kind: interaction_callback_type.Pong,
                 data: None,
               )),
@@ -55,7 +56,10 @@ fn verified(body: BitArray, handler: Handler) -> Response {
         _ -> handler(interaction)
       }
     }
-    Error(_) -> wisp.response(400)
+    Error(err) -> {
+      wisp.log_error("decode error:" <> string.inspect(err))
+      wisp.response(400)
+    }
   }
 }
 
